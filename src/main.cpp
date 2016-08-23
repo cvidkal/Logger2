@@ -194,8 +194,9 @@ std::string MainWindow::getNextFilename()
     static char const* const fmt = "%Y-%m-%d";
     std::ostringstream ss;
 
-    ss.imbue(std::locale(std::cout.getloc(), new boost::gregorian::date_facet(fmt)));
-    ss << boost::gregorian::day_clock::universal_day();
+    std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+    std::time_t now_c = std::chrono::system_clock::to_time_t(now - std::chrono::hours(24));
+    ss << std::put_time(std::localtime(&now_c), "%F %T");
 
     std::string dateFilename;
 
@@ -225,10 +226,9 @@ std::string MainWindow::getNextFilename()
         strs << std::setfill('0') << std::setw(2) << currentNum;
         strs << ".klg";
 
-        if(!boost::filesystem::exists(strs.str().c_str()))
-        {
+        std::ofstream fout(strs.str());
+        if(fout.good())
             return strs.str();
-        }
 
         currentNum++;
     }

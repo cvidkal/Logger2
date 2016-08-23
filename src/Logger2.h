@@ -30,11 +30,9 @@
 
 #ifndef Q_MOC_RUN
 #include <boost/format.hpp>
-#include <boost/thread.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
-#include <boost/thread/condition_variable.hpp>
 
 #include "OpenNI2/OpenNI2Interface.h"
 #include "MemoryBuffer.h"
@@ -67,12 +65,6 @@ class Logger2
             logToMemory = value;
         }
 
-        void setCompressed(bool value)
-        {
-            assert(!writing.getValue());
-
-            compressed = value;
-        }
 
         ThreadMutexObject<std::pair<bool, int64_t> > dropping;
 
@@ -80,12 +72,10 @@ class Logger2
         OpenNI2Interface * openNI2Interface;
         MemoryBuffer memoryBuffer;
 
-        int depth_compress_buf_size;
-        uint8_t * depth_compress_buf;
         CvMat * encodedImage;
 
         int lastWritten;
-        boost::thread * writeThread;
+        std::thread * writeThread;
         ThreadMutexObject<bool> writing;
         std::string filename;
         int64_t lastTimestamp;
@@ -94,8 +84,6 @@ class Logger2
         int height;
         int fps;
 
-        TcpHandler * tcp;
-        uint8_t * tcpBuffer;
 
         void encodeJpeg(cv::Vec<unsigned char, 3> * rgb_data);
         void loggingThread();
@@ -104,7 +92,6 @@ class Logger2
         int32_t numFrames;
 
         bool logToMemory;
-        bool compressed;
 
         void logData(int64_t * timestamp,
                      int32_t * depthSize,

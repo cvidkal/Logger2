@@ -8,9 +8,10 @@
 #ifndef THREADMUTEXOBJECT_H_
 #define THREADMUTEXOBJECT_H_
 
-#include <boost/thread.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/thread/condition_variable.hpp>
+
+#include <thread>
+#include <condition_variable>
+#include <mutex>
 
 template <class T>
 class ThreadMutexObject
@@ -26,14 +27,14 @@ class ThreadMutexObject
 
         void assignValue(T newValue)
         {
-            boost::mutex::scoped_lock lock(mutex);
+            std::unique_lock<std::mutex> lock(mutex);
 
             object = lastCopy = newValue;
 
             lock.unlock();
         }
 
-        boost::mutex & getMutex()
+        std::mutex & getMutex()
         {
             return mutex;
         }
@@ -45,7 +46,7 @@ class ThreadMutexObject
 
         void assignAndNotifyAll(T newValue)
         {
-            boost::mutex::scoped_lock lock(mutex);
+            std::unique_lock<std::mutex> lock(mutex);
 
             object = newValue;
 
@@ -56,7 +57,7 @@ class ThreadMutexObject
         
         void notifyAll()
         {
-            boost::mutex::scoped_lock lock(mutex);
+            std::unique_lock<std::mutex> lock(mutex);
 
             signal.notify_all();
 
@@ -65,7 +66,7 @@ class ThreadMutexObject
 
         T getValue()
         {
-            boost::mutex::scoped_lock lock(mutex);
+            std::unique_lock<std::mutex> lock(mutex);
 
             lastCopy = object;
 
@@ -76,7 +77,7 @@ class ThreadMutexObject
 
         T waitForSignal()
         {
-            boost::mutex::scoped_lock lock(mutex);
+            std::unique_lock<std::mutex> lock(mutex);
 
             signal.wait(mutex);
 
@@ -89,9 +90,8 @@ class ThreadMutexObject
 
         T getValueWait(int wait = 33000)
         {
-            boost::this_thread::sleep(boost::posix_time::microseconds(wait));
-
-            boost::mutex::scoped_lock lock(mutex);
+            std::this_thread::sleep_for(std::chrono::microseconds(wait));
+            std::unique_lock<std::mutex> lock(mutex);
 
             lastCopy = object;
 
@@ -102,9 +102,9 @@ class ThreadMutexObject
 
         T & getReferenceWait(int wait = 33000)
         {
-            boost::this_thread::sleep(boost::posix_time::microseconds(wait));
+            std::this_thread::sleep_for(std::chrono::microseconds(wait));
 
-            boost::mutex::scoped_lock lock(mutex);
+            std::unique_lock<std::mutex> lock(mutex);
 
             lastCopy = object;
 
@@ -115,7 +115,7 @@ class ThreadMutexObject
 
         void operator++(int)
         {
-            boost::mutex::scoped_lock lock(mutex);
+            std::unique_lock<std::mutex> lock(mutex);
 
             object++;
 
@@ -125,8 +125,8 @@ class ThreadMutexObject
     private:
         T object;
         T lastCopy;
-        boost::mutex mutex;
-        boost::condition_variable_any signal;
+        std::mutex mutex;
+        std::condition_variable_any signal;
 };
 
 #endif /* THREADMUTEXOBJECT_H_ */

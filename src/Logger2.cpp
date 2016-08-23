@@ -17,32 +17,16 @@ Logger2::Logger2(int width, int height, int fps, bool tcp)
    logFile(0),
    numFrames(0),
    logToMemory(false),
-   compressed(true)
 {
-    depth_compress_buf_size = width * height * sizeof(int16_t) * 4;
-    depth_compress_buf = (uint8_t*)malloc(depth_compress_buf_size);
-
     encodedImage = 0;
 
     writing.assignValue(false);
 
     openNI2Interface = new OpenNI2Interface(width, height, fps);
-
-    if(tcp)
-    {
-        tcpBuffer = (uint8_t *)malloc(depth_compress_buf_size + width * height * 3);
-        this->tcp = new TcpHandler(5698);
-    }
-    else
-    {
-        tcpBuffer = 0;
-        this->tcp = 0;
-    }
 }
 
 Logger2::~Logger2()
 {
-    free(depth_compress_buf);
 
     assert(!writing.getValue() && "Please stop writing cleanly first");
 
@@ -52,12 +36,6 @@ Logger2::~Logger2()
     }
 
     delete openNI2Interface;
-
-    if(tcp)
-    {
-        delete [] tcpBuffer;
-        delete tcp;
-    }
 }
 
 
@@ -77,6 +55,30 @@ void Logger2::encodeJpeg(cv::Vec<unsigned char, 3> * rgb_data)
     encodedImage = cvEncodeImage(".jpg", img, jpeg_params);
 
     delete img;
+}
+
+void Logger2::logging2Png()
+{
+    
+}
+
+
+void Logger2::startWritingPng(std::string filePath)
+{
+    assert(!writeThread && !writing.getValue() && !logFile);
+    
+    lastTimestamp = -1;
+    
+    
+    this->filename = filePath+"/list.txt";
+    
+    writing.assignValue(true);
+    
+    numFrames = 0;
+    
+    logFile = fopen(filename.c_str(),"w");
+    
+    writeThread = new std::thread(&Logger2::logging2Png(),this);
 }
 
 void Logger2::startWriting(std::string filename)
@@ -102,8 +104,8 @@ void Logger2::startWriting(std::string filename)
         fwrite(&numFrames, sizeof(int32_t), 1, logFile);
     }
 
-    writeThread = new boost::thread(boost::bind(&Logger2::loggingThread,
-                                                this));
+    writeThread = new std::thread(&Logger2::loggingThread,
+                                                this);
 }
 
 void Logger2::stopWriting(QWidget * parent)
@@ -159,47 +161,11 @@ void Logger2::loggingThread()
         unsigned long depthSize = depth_compress_buf_size;
         int32_t rgbSize = 0;
 
-        if(compressed)
-        {
-            boost::thread_group threads;
-
-            threads.add_thread(new boost::thread(compress2,
-                                                 depth_compress_buf,
-                                                 &depthSize,
-                                                 (const Bytef*)openNI2Interface->frameBuffers[bufferIndex].first.first,
-                                                 width * height * sizeof(short),
-                                                 Z_BEST_SPEED));
-
-            threads.add_thread(new boost::thread(boost::bind(&Logger2::encodeJpeg,
-                                                             this,
-                                                             (cv::Vec<unsigned char, 3> *)openNI2Interface->frameBuffers[bufferIndex].first.second)));
-
-            threads.join_all();
-
-            rgbSize = encodedImage->width;
-
-            depthData = (unsigned char *)depth_compress_buf;
-            rgbData = (unsigned char *)encodedImage->data.ptr;
-        }
-        else
-        {
             depthSize = width * height * sizeof(short);
             rgbSize = width * height * sizeof(unsigned char) * 3;
 
             depthData = (unsigned char *)openNI2Interface->frameBuffers[bufferIndex].first.first;
             rgbData = (unsigned char *)openNI2Interface->frameBuffers[bufferIndex].first.second;
-        }
-
-        if(tcp)
-        {
-            int * myMsg = (int *)&tcpBuffer[0];
-            myMsg[0] = rgbSize;
-
-            memcpy(&tcpBuffer[sizeof(int)], rgbData, rgbSize);
-            memcpy(&tcpBuffer[sizeof(int) + rgbSize], depthData, depthSize);
-
-            tcp->sendData(tcpBuffer, sizeof(int) + rgbSize + depthSize);
-        }
 
         if(logToMemory)
         {
